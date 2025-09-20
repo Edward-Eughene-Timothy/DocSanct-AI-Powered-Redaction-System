@@ -4,9 +4,18 @@ import random      # Lightweight randomness (e.g. sample prompts)
 import textwrap    # Nicely format long strings for display
 import io          # In‑memory byte streams (e.g. image buffers)
 import requests    # Simple HTTP requests for downloading assets
+import re          # Regular expression operations
+import json        # Functions for working with JSON data (parse, serialize)
+import pprint 
 
 # ── Numerical computing ─────────────────────────────────────────
 import numpy as np  # Core array maths (fast, vectorised operations)
+from PIL import (
+    Image,        # Core class for opening, manipulating, and saving images
+    ImageDraw,    # Module for drawing on images (shapes, text, etc.)
+    ImageFont,    # Module for working with different fonts when drawing text
+    ImageColor    # Utility for converting color names/formats to Pillow color values
+)
 
 # ── Deep‑learning stack ─────────────────────────────────────────
 import torch  # Tensor library + GPU acceleration
@@ -16,7 +25,6 @@ from transformers import (
 )
 
 # ── Imaging & visualisation ─────────────────────────────────────
-from PIL import Image                    # Pillow: load/save/manipulate images
 import matplotlib.pyplot as plt          # Quick plots in notebooks
 import matplotlib.patches as patches     # Bounding‑box overlays, etc.
 
@@ -37,3 +45,226 @@ model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
 processor = AutoProcessor.from_pretrained(model_id)
 
 print(f"Model loaded on: {model.device}")
+
+
+def _repair_newlines_inside_strings(txt: str) -> str:
+    """
+    Replace raw newlines that occur *inside* JSON string literals with a space.
+    Very lightweight: it simply looks for a quote, then any run of characters
+    that is NOT a quote or backslash, then a newline, then continues…
+    """
+    pattern = re.compile(r'("([^"\\]|\\.)*)\n([^"]*")')
+    while pattern.search(txt):
+        txt = pattern.sub(lambda m: m.group(1) + r'\n' + m.group(3), txt)
+    return txt
+
+def extract_json(code_block: str, parse: bool = True):
+    """
+    Remove Markdown code-block markers (``` or ```json) and return:
+      • the raw JSON string   (parse=False, default)
+      • the parsed Python obj (parse=True)
+    """
+    # Look for triple-backtick blocks, optionally tagged with a language (e.g. ```json)
+    block_re = re.compile(r"```(?:\w+)?\s*(.*?)\s*```", re.DOTALL)
+    m = block_re.search(code_block)
+    payload = (m.group(1) if m else code_block).strip()
+    if parse:
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError as e:
+            # attempt a mild repair and retry once
+            payload_fixed = _repair_newlines_inside_strings(payload)
+            return json.loads(payload_fixed)
+    else:
+        return payload
+    
+def _text_wh(draw, text, font):
+    """
+    Return (width, height) of *text* under the given *font*, coping with
+    Pillow ≥10.0 (textbbox) and older versions (textsize).
+    """
+    # Check if the draw object has the 'textbbox' method (Pillow >= 8.0)
+    if hasattr(draw, "textbbox"): # Pillow ≥8.0, preferred
+        # Get the bounding box of the text
+        left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+        # Calculate and return the width and height
+        return right - left, bottom - top
+    # Check if the draw object has the 'textsize' method (Pillow < 10.0)
+    elif hasattr(draw, "textsize"): # Pillow <10.0
+        # Get the size of the text
+        return draw.textsize(text, font=font)
+    # Fallback for other or older versions of Pillow
+    else: # Fallback
+        # Get the bounding box from the font itself
+        left, top, right, bottom = font.getbbox(text)
+        # Calculate and return the width and height
+        return right - left, bottom - top
+
+
+def draw_bboxes(
+    img,
+    detections,
+    box_color="red",
+    box_width=3,
+    font_size=32,
+    text_color="white",
+    text_bg="red",
+):
+    # Create a drawing object for the image
+    draw = ImageDraw.Draw(img)
+    try:
+        # Try to load a TrueType font
+        font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+    except OSError:
+        # If TrueType font is not found, load the default font
+        font = ImageFont.load_default(font_size)
+
+    # Iterate through each detected object
+    for det in detections:
+        # Extract bounding box coordinates
+        x1, y1, x2, y2 = det["bbox_2d"]
+        # Get the label of the detected object, default to empty string if not present
+        label = str(det.get("label", ""))
+
+        # Draw the rectangle (bounding box) on the image
+        draw.rectangle([x1, y1, x2, y2], outline=box_color, width=box_width)
+
+        # If a label exists, draw the label text
+        if label:
+            # Get the width and height of the text label
+            tw, th = _text_wh(draw, label, font)
+            # Set padding around the text
+            pad = 2
+            # Calculate the top-left x-coordinate for the text background
+            tx1 = x1
+            # Calculate the top-left y-coordinate for the text background, ensuring it stays within the top edge of the image
+            ty1 = max(0, y1 - th - 2 * pad) # keep inside top edge
+            # Calculate the bottom-right x-coordinate for the text background
+            tx2 = x1 + tw + 2 * pad
+            # Calculate the bottom-right y-coordinate for the text background
+            ty2 = ty1 + th + 2 * pad
+
+            # If a text background color is specified, draw the background rectangle
+            if text_bg:
+                draw.rectangle([tx1, ty1, tx2, ty2],
+                               fill=text_bg, outline=box_color)
+            # Draw the text label on the image
+            draw.text((tx1 + pad, ty1 + pad), label,
+                      fill=text_color, font=font)
+
+    # Return the modified image with bounding boxes and labels
+    return img
+
+def display_image(img, title="Image"):
+  # Display the image
+  plt.figure(figsize=(8, 8))
+  plt.imshow(img)
+  plt.axis("off")
+  plt.title(title)
+  plt.show()
+from PIL import Image                    # Pillow: load/save/manipulate images
+import requests
+import io
+
+url = "https://files.catbox.moe/r2hnb6.png"
+
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/115.0 Safari/537.36"
+}
+
+response = requests.get(url, headers=headers, timeout=15)
+response.raise_for_status()  # throws a proper error if the request failed
+
+img = Image.open(io.BytesIO(response.content)).convert("RGB")
+display_image(img)
+
+def inference(model, msgs):
+  # Build the full textual prompt that Qwen-VL expects
+  text_prompt = processor.apply_chat_template(
+    msgs,
+    tokenize=False,
+    add_generation_prompt=True
+  )
+  # Extract vision-modalities from msgs and convert them to model-ready tensors
+  image_inputs, video_inputs = process_vision_info(msgs)
+
+  # ── Pack text + vision into model-ready tensors ──────────────────────────────
+  inputs = processor(
+      text=[text_prompt],      # 1-element batch containing the chat prompt string
+      images=image_inputs,     # list of raw PIL images (pre-processed inside processor)
+      videos=video_inputs,     # list of raw video clips (if any)
+      padding=True,            # pad sequences so text/vision tokens line up in a batch
+      return_tensors="pt",     # return a dict of PyTorch tensors (input_ids, pixel_values, …)
+  ).to(model.device)           # move every tensor—text & vision—to the model’s GPU/CPU
+
+  # ── Run inference (no gradients, pure generation) ───────────────────────────
+  with torch.no_grad():                     # disable autograd to save memory
+      generated_ids = model.generate(       # autoregressive decoding
+          **inputs,                         # unpack dict into generate(...)
+          max_new_tokens=1000               # cap the response to max_new_tokens
+      )
+  # Extract the newly generated tokens (skip the prompt length)
+  output = processor.batch_decode(
+      generated_ids[:, inputs.input_ids.shape[-1]:],
+      skip_special_tokens=False
+  )[0]
+  print(f"RAW output:\n {output} \n")
+
+  # The above output will be in the following format
+  # ```json
+  #  [
+	#    {"bbox_2d": [x, y, w, h], "label": "class name"}
+  # ]
+  # ```<|im_end|>
+  # We will use extract_json utility to extract just the JSON object.
+  # [
+	#    {"bbox_2d": [x, y, w, h], "label": "class name"}
+  # ]
+  bounding_boxes = extract_json(output)
+  if isinstance(bounding_boxes, dict):
+    bounding_boxes = [bounding_boxes]
+  print("JSON output:\n")
+  pprint.pprint(bounding_boxes, indent=4)
+  return bounding_boxes
+
+msgs = [
+    {
+        "role": "system",
+        "content": [
+            {
+                "type": "text",
+                "text": (
+                    "You are a document redaction detector. The format of your output must be a valid JSON object "
+                    "{'bbox_2d': [x1, y1, x2, y2], 'label': 'class'} "
+                    "where 'class' is one of: 'Names', 'address', 'date', 'signature','registration_number', or 'other_sensitive_info'."
+                )
+            }
+        ],
+    },
+    {
+        "role": "user",
+        "content": [
+            {"type": "image", "image": img},
+            {
+                "type": "text",
+                "text": (
+                    "Detect and return bounding boxes for all sensitive fields, including Names, addresses, Signature"
+                    "dates, and registration numbers."
+                )
+            }
+        ],
+    }
+]
+
+
+# Run inference
+bounding_boxes = inference(model, msgs)
+
+# Draw the bounding boxes on the image
+img_out = draw_bboxes(img.copy(), bounding_boxes)
+
+# Display the output
+display_image(img_out, title="Output")
+
