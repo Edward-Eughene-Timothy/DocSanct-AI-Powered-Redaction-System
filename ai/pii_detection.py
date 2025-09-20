@@ -126,31 +126,8 @@ def draw_bboxes(
         # Get the label of the detected object, default to empty string if not present
         label = str(det.get("label", ""))
 
-        # Draw the rectangle (bounding box) on the image
-        draw.rectangle([x1, y1, x2, y2], outline=box_color, width=box_width)
-
-        # If a label exists, draw the label text
-        if label:
-            # Get the width and height of the text label
-            tw, th = _text_wh(draw, label, font)
-            # Set padding around the text
-            pad = 2
-            # Calculate the top-left x-coordinate for the text background
-            tx1 = x1
-            # Calculate the top-left y-coordinate for the text background, ensuring it stays within the top edge of the image
-            ty1 = max(0, y1 - th - 2 * pad) # keep inside top edge
-            # Calculate the bottom-right x-coordinate for the text background
-            tx2 = x1 + tw + 2 * pad
-            # Calculate the bottom-right y-coordinate for the text background
-            ty2 = ty1 + th + 2 * pad
-
-            # If a text background color is specified, draw the background rectangle
-            if text_bg:
-                draw.rectangle([tx1, ty1, tx2, ty2],
-                               fill=text_bg, outline=box_color)
-            # Draw the text label on the image
-            draw.text((tx1 + pad, ty1 + pad), label,
-                      fill=text_color, font=font)
+    # Draw a filled black rectangle (redaction box) on the image
+    draw.rectangle([x1, y1, x2, y2], fill="black")
 
     # Return the modified image with bounding boxes and labels
     return img
@@ -162,6 +139,7 @@ def display_image(img, title="Image"):
   plt.axis("off")
   plt.title(title)
   plt.show()
+
 from PIL import Image                    # Pillow: load/save/manipulate images
 import requests
 import io
@@ -178,13 +156,13 @@ response = requests.get(url, headers=headers, timeout=15)
 response.raise_for_status()  # throws a proper error if the request failed
 
 img = Image.open(io.BytesIO(response.content)).convert("RGB")
-display_image(img)
+#display_image(img)
 
 def inference(model, msgs):
   # Build the full textual prompt that Qwen-VL expects
   text_prompt = processor.apply_chat_template(
     msgs,
-    tokenize=False,
+    tokenize=False, 
     add_generation_prompt=True
   )
   # Extract vision-modalities from msgs and convert them to model-ready tensors
@@ -224,8 +202,8 @@ def inference(model, msgs):
   # ]
   bounding_boxes = extract_json(output)
   if isinstance(bounding_boxes, dict):
-    bounding_boxes = [bounding_boxes]
-  print("JSON output:\n")
+      bounding_boxes = [bounding_boxes]
+  print("Parsed bounding_boxes:\n")
   pprint.pprint(bounding_boxes, indent=4)
   return bounding_boxes
 
@@ -238,7 +216,7 @@ msgs = [
                 "text": (
                     "You are a document redaction detector. The format of your output must be a valid JSON object "
                     "{'bbox_2d': [x1, y1, x2, y2], 'label': 'class'} "
-                    "where 'class' is one of: 'Names', 'address', 'date', 'signature','registration_number', or 'other_sensitive_info'."
+                    "where 'class' is from : 'Names', 'address', 'date', 'signature','registration_number', or 'other_sensitive_info'."
                 )
             }
         ],
@@ -250,8 +228,9 @@ msgs = [
             {
                 "type": "text",
                 "text": (
-                    "Detect and return bounding boxes for all sensitive fields, including Names, addresses, Signature"
-                    "dates, and registration numbers."
+                    "Detect and return bounding boxes for every instance of private information in this image. "
+                    "This includes all Names, addresses, signatures, dates, registration numbers, and any other sensitive info. "
+                    "Do not skip any field. Return a list of all bounding boxes and their labels in valid JSON."
                 )
             }
         ],
@@ -266,5 +245,4 @@ bounding_boxes = inference(model, msgs)
 img_out = draw_bboxes(img.copy(), bounding_boxes)
 
 # Display the output
-display_image(img_out, title="Output")
-
+display_image(img_out, title="Output") 
