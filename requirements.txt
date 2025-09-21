@@ -1,0 +1,32 @@
+# DocSanct AI-Powered Redaction System requirements.txt
+# Install with: pip install -r requirements.txt
+
+# Core web frameworks
+fastapi
+uvicorn
+requests
+Django
+
+# AI/ML and vision
+transformers
+torch
+numpy
+Pillow
+pdf2image
+PyPDF2
+pytesseract
+opencv-python
+matplotlib
+
+# CORS for FastAPI
+python-multipart
+
+# Optional: For PDF/image conversion and OCR
+poppler-utils  # (Linux: sudo apt install poppler-utils)
+tesseract-ocr # (Linux: sudo apt install tesseract-ocr)
+
+# For batch processing (if using Celery/Redis, add these)
+# celery
+# redis
+
+# If using Qwen2.5-VL model, ensure transformers >=4.36.0
