@@ -1,3 +1,5 @@
+# Add missing import for os
+import os
 """
 Django settings for frontend project.
 
@@ -24,8 +26,8 @@ SECRET_KEY = 'django-insecure-1x$ulyl%*r25u1w)60#w!jv$&ae55d*2r@$wpasudy7-%bsa40
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
-ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -54,7 +56,7 @@ ROOT_URLCONF = 'frontend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'frontend', 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
