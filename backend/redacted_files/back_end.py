@@ -20,6 +20,7 @@ def redact_files(documents: list[UploadFile] = File(...)):
         img_dir = os.path.join(UPLOAD_DIR, "REDACT_PICs")
         os.makedirs(pdf_dir, exist_ok=True)
         os.makedirs(img_dir, exist_ok=True)
+        uploaded_paths = []
         for file in documents:
             ext = os.path.splitext(file.filename)[1].lower()
             if ext == ".pdf":
@@ -29,8 +30,10 @@ def redact_files(documents: list[UploadFile] = File(...)):
             print(f"Saving file: {file.filename} to {out_path}")
             with open(out_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
-        print("Running batch_process_files...")
-        processed_files = batch_process_files(UPLOAD_DIR)
+            uploaded_paths.append(out_path)
+        print("Running batch redaction only on uploaded files...")
+        from batch.batch_processing import process_and_redact_file, compress_to_zip
+        processed_files = [process_and_redact_file(path) for path in uploaded_paths]
         print("Files processed:", processed_files)
         print("Compressing to zip...")
         compress_to_zip(processed_files, ZIP_OUTPUT)

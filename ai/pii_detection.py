@@ -258,10 +258,12 @@ def redact_image_with_vlm(img, output_path):
                 {
                     "type": "text",
                     "text": (
-                        "You are a document redaction detector. The format of your output must be a valid JSON object "
+                        "You are a medical document redaction detector. The format of your output must be a valid JSON object "
                         "{'bbox_2d': [x1, y1, x2, y2], 'label': 'class'} "
-                        "where 'class' is from : 'Names', 'address', 'date', 'signature','registration_number','other_sensitive_info', 'Bank Details', 'email address',"
-                        "'phone number','credit card number','social security number','date of birth','address'."
+                        "where 'class' is from: 'patient_name', 'doctor_name', 'address', 'date', 'signature', 'registration_number', 'other_sensitive_info', "
+                        "'Bank Details', 'email address', 'phone number', 'credit card number', 'social security number', 'date of birth', 'patient_disease', "
+                        "'medical_condition', 'xray_scan_picture', 'sickness', 'medical_record_number', 'insurance_number', 'hospital_name', 'hospital_address', "
+                        "'prescription', 'treatment_details', 'contact_info'."
                     )
                 }
             ],
@@ -273,9 +275,10 @@ def redact_image_with_vlm(img, output_path):
                 {
                     "type": "text",
                     "text": (
-                        "Detect and return bounding boxes for every instance of private information in this image. "
-                        "This includes all 'Names', 'addresses', 'signatures', 'dates', 'registration numbers', and any other sensitive info.'Bank Details', 'email address',"
-                        "'phone number','credit card number','social security number','date of birth','address'."
+                        "Detect and return bounding boxes for every instance of private information in this medical image or document. "
+                        "This includes all 'patient_name', 'doctor_name', 'address', 'signatures', 'dates', 'registration numbers', 'patient_disease', "
+                        "'medical_condition', 'xray_scan_picture', 'sickness', 'medical_record_number', 'insurance_number', 'hospital_name', 'hospital_address', "
+                        "'prescription', 'treatment_details', 'contact_info', and any other sensitive info. "
                         "Do not skip any field. Return a list of all bounding boxes and their labels in valid JSON."
                     )
                 }

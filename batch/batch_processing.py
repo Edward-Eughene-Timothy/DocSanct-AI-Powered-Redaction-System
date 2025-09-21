@@ -29,10 +29,12 @@ def process_and_redact_file(file_path):
                     {
                         "type": "text",
                         "text": (
-                            "You are a document redaction detector. The format of your output must be a valid JSON object "
+                            "You are a medical document redaction detector. The format of your output must be a valid JSON object "
                             "{'bbox_2d': [x1, y1, x2, y2], 'label': 'class'} "
-                            "where 'class' is from : 'Names', 'address', 'date', 'signature','registration_number','other_sensitive_info', 'Bank Details', 'email address',"
-                            "'phone number','credit card number','social security number','date of birth','address'."
+                            "where 'class' is from: 'patient_name', 'doctor_name', 'address', 'date', 'signature', 'registration_number', 'other_sensitive_info', "
+                            "'Bank Details', 'email address', 'phone number', 'credit card number', 'social security number', 'date of birth', 'patient_disease', "
+                            "'medical_condition', 'xray_scan_picture', 'sickness', 'medical_record_number', 'insurance_number', 'hospital_name', 'hospital_address', "
+                            "'prescription', 'treatment_details', 'contact_info'."
                         )
                     }
                 ],
@@ -44,9 +46,10 @@ def process_and_redact_file(file_path):
                     {
                         "type": "text",
                         "text": (
-                            "Detect and return bounding boxes for every instance of private information in this image. "
-                            "This includes all 'Names', 'addresses', 'signatures', 'dates', 'registration numbers', and any other sensitive info.'Bank Details', 'email address',"
-                            "'phone number','credit card number','social security number','date of birth','address'."
+                            "Detect and return bounding boxes for every instance of private information in this medical image or document. "
+                            "This includes all 'patient_name', 'doctor_name', 'address', 'signatures', 'dates', 'registration numbers', 'patient_disease', "
+                            "'medical_condition', 'xray_scan_picture', 'sickness', 'medical_record_number', 'insurance_number', 'hospital_name', 'hospital_address', "
+                            "'prescription', 'treatment_details', 'contact_info', and any other sensitive info. "
                             "Do not skip any field. Return a list of all bounding boxes and their labels in valid JSON."
                         )
                     }
@@ -71,8 +74,17 @@ def batch_process_files(upload_dir):
     processed_files = []
     for subdir in ["REDACT_PDFs", "REDACT_PICs"]:
         dir_path = os.path.join(upload_dir, subdir)
-        for fname in os.listdir(dir_path):
+        print(f"Checking directory: {dir_path}")
+        if not os.path.exists(dir_path):
+            print(f"Directory does not exist: {dir_path}")
+            continue
+        files = os.listdir(dir_path)
+        if not files:
+            print(f"No files found in: {dir_path}")
+            continue
+        for fname in files:
             file_path = os.path.join(dir_path, fname)
+            print(f"Processing file in batch: {file_path}")
             processed = process_and_redact_file(file_path)
             processed_files.append(processed)
     return processed_files
