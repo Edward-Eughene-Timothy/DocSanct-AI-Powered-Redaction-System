@@ -5,7 +5,7 @@ from django.http import HttpResponse, FileResponse
 import requests
 import io
 
-FASTAPI_URL = "http://localhost:8000/redact"  # Update with your FastAPI endpoint
+FASTAPI_URL = "http://localhost:8001/redact"  # Update with your FastAPI endpoint
 
 def home(request):
     return render(request, "home.html")

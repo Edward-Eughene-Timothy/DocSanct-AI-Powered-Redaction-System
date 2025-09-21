@@ -140,23 +140,7 @@ def display_image(img, title="Image"):
   plt.title(title)
   plt.show()
 
-from PIL import Image                    # Pillow: load/save/manipulate images
-import requests
-import io
-
-url = "https://files.catbox.moe/r2hnb6.png"
-
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/115.0 Safari/537.36"
-}
-
-response = requests.get(url, headers=headers, timeout=15)
-response.raise_for_status()  # throws a proper error if the request failed
-
-img = Image.open(io.BytesIO(response.content)).convert("RGB")
-#display_image(img)
+## Removed hardcoded image URL and related code. Only uploaded images are processed via API/batch.
 
 def inference(model, msgs):
   # Build the full textual prompt that Qwen-VL expects
@@ -207,47 +191,7 @@ def inference(model, msgs):
   pprint.pprint(bounding_boxes, indent=4)
   return bounding_boxes
 
-msgs = [
-    {
-        "role": "system",
-        "content": [
-            {
-                "type": "text",
-                "text": (
-                    "You are a document redaction detector. The format of your output must be a valid JSON object "
-                    "{'bbox_2d': [x1, y1, x2, y2], 'label': 'class'} "
-                    "where 'class' is from : 'Names', 'address', 'date', 'signature','registration_number','other_sensitive_info', 'Bank Details', 'email address',"
-                    "'phone number','credit card number','social security number','date of birth','address'."
-                )
-            }
-        ],
-    },
-    {
-        "role": "user",
-        "content": [
-            {"type": "image", "image": img},
-            {
-                "type": "text",
-                "text": (
-                    "Detect and return bounding boxes for every instance of private information in this image. "
-                    "This includes all 'Names', 'addresses', 'signatures', 'dates', 'registration numbers', and any other sensitive info.'Bank Details', 'email address',"
-                    "'phone number','credit card number','social security number','date of birth','address'."
-                    "Do not skip any field. Return a list of all bounding boxes and their labels in valid JSON."
-                )
-            }
-        ],
-    }
-]
-
-
-# Run inference
-bounding_boxes = inference(model, msgs)
-
-# Draw the bounding boxes on the image
-img_out = draw_bboxes(img.copy(), bounding_boxes)
-
-# Display the output
-display_image(img_out, title="Output")
+## Removed global test code and references to 'img'. Only functions for API/batch use remain.
 from pdf2image import convert_from_path
 from PyPDF2 import PdfReader, PdfWriter
 

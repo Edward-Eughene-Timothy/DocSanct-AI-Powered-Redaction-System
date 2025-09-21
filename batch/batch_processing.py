@@ -76,6 +76,4 @@ def compress_to_zip(file_list, zip_path):
             zipf.write(file, os.path.basename(file))
     print(f"All redacted files compressed to: {zip_path}")
 
-if __name__ == "__main__":
-    files = batch_process_files(UPLOAD_DIR)
-    compress_to_zip(files, ZIP_OUTPUT)
+## Removed local test code. Redaction now only runs via FastAPI endpoint and processes uploaded files.
