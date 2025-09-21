@@ -13,6 +13,7 @@ ZIP_OUTPUT = os.path.join(REDACTED_DIR, "redacted_documents.zip")
 
 @app.post("/redact")
 def redact_files(documents: list[UploadFile] = File(...)):
+    print("/redact endpoint called. Number of files received:", len(documents))
     try:
         # Save uploaded files to appropriate directories
         pdf_dir = os.path.join(UPLOAD_DIR, "REDACT_PDFs")
@@ -25,11 +26,15 @@ def redact_files(documents: list[UploadFile] = File(...)):
                 out_path = os.path.join(pdf_dir, file.filename)
             else:
                 out_path = os.path.join(img_dir, file.filename)
+            print(f"Saving file: {file.filename} to {out_path}")
             with open(out_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
-        # Run batch processing
+        print("Running batch_process_files...")
         processed_files = batch_process_files(UPLOAD_DIR)
+        print("Files processed:", processed_files)
+        print("Compressing to zip...")
         compress_to_zip(processed_files, ZIP_OUTPUT)
+        print("Returning zip file:", ZIP_OUTPUT)
         # Return the zip file
         return FileResponse(ZIP_OUTPUT, media_type="application/zip", filename="redacted.zip")
     except Exception as e:

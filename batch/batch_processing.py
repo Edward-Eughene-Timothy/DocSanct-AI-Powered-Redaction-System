@@ -17,8 +17,11 @@ def process_and_redact_file(file_path):
     ext = os.path.splitext(file_path)[1].lower()
     fname = os.path.basename(file_path)
     out_path = os.path.join(REDACTED_DIR, f"redacted_{fname}")
+    print(f"Processing file: {file_path} (ext: {ext})")
     if ext in IMG_EXTS:
+        print(f"Opening image: {file_path}")
         img = Image.open(file_path)
+        print("Preparing VLM messages...")
         msgs = [
             {
                 "role": "system",
@@ -50,10 +53,14 @@ def process_and_redact_file(file_path):
                 ],
             }
         ]
+        print("Running VLM inference...")
         bounding_boxes = inference(model, msgs)
+        print("Bounding boxes:", bounding_boxes)
+        print("Drawing bboxes and saving redacted image...")
         img_redacted = draw_bboxes(img.copy(), bounding_boxes)
         img_redacted.save(out_path)
     elif ext == PDF_EXT:
+        print(f"Redacting PDF: {file_path}")
         redact_pdf_with_vlm(file_path, out_path, password="redacted123")
     else:
         print(f"Unsupported file type: {file_path}")
