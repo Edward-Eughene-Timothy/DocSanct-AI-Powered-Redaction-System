@@ -185,11 +185,23 @@ def inference(model, msgs):
 	#    {"bbox_2d": [x, y, w, h], "label": "class name"}
   # ]
   bounding_boxes = extract_json(output)
+  # Ensure output is always a list
   if isinstance(bounding_boxes, dict):
       bounding_boxes = [bounding_boxes]
-  print("Parsed bounding_boxes:\n")
-  pprint.pprint(bounding_boxes, indent=4)
-  return bounding_boxes
+  elif not isinstance(bounding_boxes, list):
+      bounding_boxes = []
+  # Filter for all relevant PII classes
+  pii_labels = {
+      'Names', 'address', 'date', 'signature', 'registration_number', 'other_sensitive_info',
+      'Bank Details', 'email address', 'phone number', 'credit card number', 'social security number',
+      'date of birth', 'patient_name', 'doctor_name', 'patient_disease', 'medical_condition',
+      'xray_scan_picture', 'sickness', 'medical_record_number', 'insurance_number', 'hospital_name',
+      'hospital_address', 'prescription', 'treatment_details', 'contact_info'
+  }
+  filtered_bboxes = [det for det in bounding_boxes if str(det.get('label', '')).strip().lower().replace(' ', '_') in {lbl.lower().replace(' ', '_') for lbl in pii_labels}]
+  print("Parsed bounding_boxes (filtered for PII):\n")
+  pprint.pprint(filtered_bboxes, indent=4)
+  return filtered_bboxes
 
 ## Removed global test code and references to 'img'. Only functions for API/batch use remain.
 from pdf2image import convert_from_path
@@ -224,8 +236,8 @@ def redact_pdf_with_vlm(pdf_path, output_path, password="redacted123"):
                         "type": "text",
                         "text": (
                             "Detect and return bounding boxes for every instance of private information in this image. "
-                            "This includes all 'Names', 'addresses', 'signatures', 'dates', 'registration numbers', and any other sensitive info.'Bank Details', 'email address',"
-                            "'phone number','credit card number','social security number','date of birth','address'."
+                            "This includes all 'Names', 'addresses', 'signatures', 'dates', 'registration numbers', 'Bank Details', 'email address', "
+                            "'phone number', 'credit card number', 'social security number', 'date of birth', 'address', and any other sensitive info. "
                             "Do not skip any field. Return a list of all bounding boxes and their labels in valid JSON."
                         )
                     }
@@ -235,7 +247,6 @@ def redact_pdf_with_vlm(pdf_path, output_path, password="redacted123"):
         bounding_boxes = inference(model, msgs)
         img_redacted = draw_bboxes(page_img.copy(), bounding_boxes)
         redacted_imgs.append(img_redacted)
-    # Save redacted images as PDF
     temp_pdf_path = output_path + ".temp.pdf"
     redacted_imgs[0].save(temp_pdf_path, save_all=True, append_images=redacted_imgs[1:])
     # Remove metadata and encrypt
