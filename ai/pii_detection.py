@@ -216,7 +216,8 @@ msgs = [
                 "text": (
                     "You are a document redaction detector. The format of your output must be a valid JSON object "
                     "{'bbox_2d': [x1, y1, x2, y2], 'label': 'class'} "
-                    "where 'class' is from : 'Names', 'address', 'date', 'signature','registration_number', or 'other_sensitive_info'."
+                    "where 'class' is from : 'Names', 'address', 'date', 'signature','registration_number','other_sensitive_info', 'Bank Details', 'email address',"
+                    "'phone number','credit card number','social security number','date of birth','address'."
                 )
             }
         ],
@@ -229,7 +230,8 @@ msgs = [
                 "type": "text",
                 "text": (
                     "Detect and return bounding boxes for every instance of private information in this image. "
-                    "This includes all Names, addresses, signatures, dates, registration numbers, and any other sensitive info. "
+                    "This includes all 'Names', 'addresses', 'signatures', 'dates', 'registration numbers', and any other sensitive info.'Bank Details', 'email address',"
+                    "'phone number','credit card number','social security number','date of birth','address'."
                     "Do not skip any field. Return a list of all bounding boxes and their labels in valid JSON."
                 )
             }
@@ -245,4 +247,98 @@ bounding_boxes = inference(model, msgs)
 img_out = draw_bboxes(img.copy(), bounding_boxes)
 
 # Display the output
-display_image(img_out, title="Output") 
+display_image(img_out, title="Output")
+from pdf2image import convert_from_path
+from PyPDF2 import PdfReader, PdfWriter
+
+def redact_pdf_with_vlm(pdf_path, output_path, password="redacted123"):
+    # Convert PDF pages to images
+    pages = convert_from_path(pdf_path)
+    redacted_imgs = []
+    for page_img in pages:
+        # Run VLM model redaction (replace with your actual logic)
+        msgs = [
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "You are a document redaction detector. The format of your output must be a valid JSON object "
+                            "{'bbox_2d': [x1, y1, x2, y2], 'label': 'class'} "
+                            "where 'class' is from : 'Names', 'address', 'date', 'signature','registration_number','other_sensitive_info', 'Bank Details', 'email address',"
+                            "'phone number','credit card number','social security number','date of birth','address'."
+                        )
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": page_img},
+                    {
+                        "type": "text",
+                        "text": (
+                            "Detect and return bounding boxes for every instance of private information in this image. "
+                            "This includes all 'Names', 'addresses', 'signatures', 'dates', 'registration numbers', and any other sensitive info.'Bank Details', 'email address',"
+                            "'phone number','credit card number','social security number','date of birth','address'."
+                            "Do not skip any field. Return a list of all bounding boxes and their labels in valid JSON."
+                        )
+                    }
+                ],
+            }
+        ]
+        bounding_boxes = inference(model, msgs)
+        img_redacted = draw_bboxes(page_img.copy(), bounding_boxes)
+        redacted_imgs.append(img_redacted)
+    # Save redacted images as PDF
+    temp_pdf_path = output_path + ".temp.pdf"
+    redacted_imgs[0].save(temp_pdf_path, save_all=True, append_images=redacted_imgs[1:])
+    # Remove metadata and encrypt
+    reader = PdfReader(temp_pdf_path)
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+    writer.add_metadata({})
+    writer.encrypt(password)
+    with open(output_path, "wb") as f:
+        writer.write(f)
+    os.remove(temp_pdf_path)
+    print(f"Redacted, encrypted PDF saved to: {output_path}")
+
+def redact_image_with_vlm(img, output_path):
+    msgs = [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": (
+                        "You are a document redaction detector. The format of your output must be a valid JSON object "
+                        "{'bbox_2d': [x1, y1, x2, y2], 'label': 'class'} "
+                        "where 'class' is from : 'Names', 'address', 'date', 'signature','registration_number','other_sensitive_info', 'Bank Details', 'email address',"
+                        "'phone number','credit card number','social security number','date of birth','address'."
+                    )
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": img},
+                {
+                    "type": "text",
+                    "text": (
+                        "Detect and return bounding boxes for every instance of private information in this image. "
+                        "This includes all 'Names', 'addresses', 'signatures', 'dates', 'registration numbers', and any other sensitive info.'Bank Details', 'email address',"
+                        "'phone number','credit card number','social security number','date of birth','address'."
+                        "Do not skip any field. Return a list of all bounding boxes and their labels in valid JSON."
+                    )
+                }
+            ],
+        }
+    ]
+    bounding_boxes = inference(model, msgs)
+    img_redacted = draw_bboxes(img.copy(), bounding_boxes)
+    img_redacted.save(output_path)
+    print(f"Redacted image saved to: {output_path}")
